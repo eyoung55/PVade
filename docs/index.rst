@@ -13,6 +13,7 @@ Organization
 
 Documentation is currently organized into three main categories:
 
+
 * :ref:`How to Guides`: User guides covering basic topics and use cases for the PVade software
 * :ref:`Technical Reference`: Programming details on the PVade API and functions
 * :ref:`Background`: Information and research sources for fluid and structural solvers and PV topics
