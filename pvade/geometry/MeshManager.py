@@ -4,6 +4,7 @@ import os
 import time
 import ufl
 import dolfinx
+from basix.ufl import element
 
 # import meshio
 import yaml
@@ -215,11 +216,18 @@ class FSIDomain:
         if params.general.fluid_analysis == True:
             # Create all forms that will eventually be used for mesh rotation/movement
             # Build a function space for the rotation (a vector of degree 1)
-            vec_el_1 = ufl.VectorElement("Lagrange", self.fluid.msh.ufl_cell(), 1)
-            self.V1 = dolfinx.fem.FunctionSpace(self.fluid.msh, vec_el_1)
+            # vec_el_1 = ufl.VectorElement("Lagrange", self.fluid.msh.ufl_cell(), 1)
+            vec_el_1 = element(
+                "Lagrange",
+                self.fluid.msh.basix_cell(),
+                degree=1,
+                shape=(self.fluid.msh.geometry.dim,),
+            )
+
+            self.V1 = dolfinx.fem.functionspace(self.fluid.msh, vec_el_1)
 
             # vec_el_1_og = ufl.VectorElement("Lagrange", self.fluid_undeformed.msh.ufl_cell(), 1)
-            self.V1_undeformed = dolfinx.fem.FunctionSpace(
+            self.V1_undeformed = dolfinx.fem.functionspace(
                 self.fluid_undeformed.msh, vec_el_1
             )
 
@@ -563,11 +571,11 @@ class FSIDomain:
                 with dolfinx.io.XDMFFile(self.comm, mesh_filename, "w") as xdmf:
                     sub_domain.msh.name = mesh_name
                     xdmf.write_mesh(sub_domain.msh)
-                    xdmf.write_meshtags(sub_domain.cell_tags)
+                    xdmf.write_meshtags(sub_domain.cell_tags, sub_domain.msh.geometry)
                     sub_domain.msh.topology.create_connectivity(
                         self.ndim - 1, self.ndim
                     )
-                    xdmf.write_meshtags(sub_domain.facet_tags)
+                    xdmf.write_meshtags(sub_domain.facet_tags, sub_domain.msh.geometry)
 
                 # Write a gmsh copy too
                 gmsh_mesh_name = f"{sub_domain_name}_mesh.msh"
@@ -601,10 +609,10 @@ class FSIDomain:
         and use it to solve the CFD/CSD problem
         """
 
-        sub_domain_list = ["fluid", "structure"]
+        sub_domain_list = ["fluid", "fluid_undeformed", "structure"]
 
         for sub_domain_name in sub_domain_list:
-            mesh_name = f"{sub_domain_name}_mesh.xdmf"
+            mesh_name = f"{sub_domain_name.split('_')[0]}_mesh.xdmf"
             mesh_filename = os.path.join(read_mesh_dir, mesh_name)
 
             try:
@@ -636,6 +644,7 @@ class FSIDomain:
                     assert self.ndim == submesh.topology.dim
 
                 submesh.topology.create_connectivity(self.ndim, self.ndim - 1)
+                # submesh.topology.create_connectivity(self.ndim, 0)
 
                 sub_domain = FSISubDomain()
 
@@ -652,38 +661,53 @@ class FSIDomain:
 
                 setattr(self, sub_domain_name, sub_domain)
 
-                if sub_domain_name == "fluid":
-                    domain_ufl = ufl.Mesh(
-                        self.fluid.msh.ufl_domain().ufl_coordinate_element()
-                    )
-                    fluid_undeformed = dolfinx.mesh.Mesh(
-                        self.comm,
-                        self.fluid.msh.topology,
-                        self.fluid.msh.geometry,
-                        domain_ufl,
-                    )
+                # if sub_domain_name == "fluid":
+                #     domain_ufl = ufl.Mesh(
+                #         self.fluid.msh.ufl_domain().ufl_coordinate_element()
+                #     )
+                #     # fluid_undeformed = dolfinx.mesh.Mesh(
+                #     #     self.comm,
+                #     #     self.fluid.msh.topology,
+                #     #     self.fluid.msh.geometry,
+                #     #     domain_ufl,
+                #     # )
 
-                    fluid_undeformed.topology.create_connectivity(
-                        self.ndim, self.ndim - 1
-                    )
+                #     # fluid_undeformed = self.fluid.msh
+                #     # print(submesh)
 
-                    sub_domain_undeformed = FSISubDomain()
+                #     cells = self.fluid.msh.topology.connectivity(self.ndim, 0)
+                #     cells = cells.array.reshape(-1, self.ndim+1)
+                #     print(cells)
+                #     print(self.fluid.msh.geometry.x)
 
-                    sub_domain_undeformed.msh = fluid_undeformed
-                    sub_domain_undeformed.cell_tags = cell_tags
-                    sub_domain_undeformed.facet_tags = facet_tags
+                #     fluid_undeformed = dolfinx.mesh.create_mesh(
+                #         self.comm,
+                #         cells,
+                #         self.fluid.msh.geometry.x,
+                #         domain_ufl,
+                #     )
 
-                    # These elements do not need to be created when reading a mesh
-                    # they are only used in the transfer of facet tags, and since
-                    # those can be read directly from a file, we don't need these
-                    sub_domain_undeformed.entity_map = None
-                    sub_domain_undeformed.vertex_map = None
-                    sub_domain_undeformed.geom_map = None
+                #     fluid_undeformed.topology.create_connectivity(
+                #         self.ndim, self.ndim - 1
+                #     )
 
-                    setattr(self, "fluid_undeformed", sub_domain_undeformed)
+                #     sub_domain_undeformed = FSISubDomain()
 
-                    # assert np.all(self.fluid.msh.geometry.x[:] == self.fluid_undeformed.msh.geometry.x[:])
-                    # assert np.shape(self.fluid.msh.geometry.x[:]) == np.shape(self.fluid_undeformed.msh.geometry.x[:])
+                #     sub_domain_undeformed.msh = fluid_undeformed
+                #     sub_domain_undeformed.cell_tags = cell_tags
+                #     sub_domain_undeformed.facet_tags = facet_tags
+
+                #     # These elements do not need to be created when reading a mesh
+                #     # they are only used in the transfer of facet tags, and since
+                #     # those can be read directly from a file, we don't need these
+                #     sub_domain_undeformed.entity_map = None
+                #     sub_domain_undeformed.vertex_map = None
+                #     sub_domain_undeformed.geom_map = None
+
+                #     setattr(self, "fluid_undeformed", sub_domain_undeformed)
+
+                #     # assert np.all(self.fluid.msh.geometry.x[:] == self.fluid_undeformed.msh.geometry.x[:])
+                #     # assert np.shape(self.fluid.msh.geometry.x[:]) == np.shape(self.fluid_undeformed.msh.geometry.x[:])
 
             if self.rank == 0:
                 print(f"Finished read {sub_domain_name} mesh.")
@@ -706,11 +730,23 @@ class FSIDomain:
         if params.general.fluid_analysis == True:
             # Create all forms that will eventually be used for mesh rotation/movement
             # Build a function space for the rotation (a vector of degree 1)
-            vec_el_1 = ufl.VectorElement("Lagrange", self.fluid.msh.ufl_cell(), 1)
-            self.V1 = dolfinx.fem.FunctionSpace(self.fluid.msh, vec_el_1)
+            # vec_el_1 = ufl.VectorElement("Lagrange", self.fluid.msh.ufl_cell(), 1)
+            vec_el_1 = element(
+                "Lagrange",
+                self.fluid.msh.basix_cell(),
+                degree=1,
+                shape=(self.fluid.msh.geometry.dim,),
+            )
+            self.V1 = dolfinx.fem.functionspace(self.fluid.msh, vec_el_1)
 
-            self.V1_undeformed = dolfinx.fem.FunctionSpace(
-                self.fluid_undeformed.msh, vec_el_1
+            vec_el_2 = element(
+                "Lagrange",
+                self.fluid_undeformed.msh.basix_cell(),
+                degree=1,
+                shape=(self.fluid.msh.geometry.dim,),
+            )
+            self.V1_undeformed = dolfinx.fem.functionspace(
+                self.fluid_undeformed.msh, vec_el_2
             )
 
             self.fluid_mesh_displacement = dolfinx.fem.Function(
@@ -727,10 +763,19 @@ class FSIDomain:
             )
 
     def test_mesh_functionspace(self):
-        P2 = ufl.VectorElement("Lagrange", self.msh.ufl_cell(), 2)
-        P1 = ufl.FiniteElement("Lagrange", self.msh.ufl_cell(), 1)
-        V = dolfinx.fem.FunctionSpace(self.msh, P2)
-        Q = dolfinx.fem.FunctionSpace(self.msh, P1)
+        # P2 = ufl.VectorElement("Lagrange", self.msh.ufl_cell(), 2)
+        # P1 = ufl.FiniteElement("Lagrange", self.msh.ufl_cell(), 1)
+
+        P2 = element(
+            "Lagrange",
+            self.fluid.msh.basix_cell(),
+            degree=2,
+            shape=(self.fluid.msh.geometry.dim,),
+        )
+        P1 = element("Lagrange", self.fluid.msh.basix_cell(), degree=1)
+
+        V = dolfinx.fem.functionspace(self.msh, P2)
+        Q = dolfinx.fem.functionspace(self.msh, P1)
 
         local_rangeV = V.dofmap.index_map.local_range
         dofsV = np.arange(*local_rangeV)
@@ -754,12 +799,18 @@ class FSIDomain:
         print(f"Rank {self.rank} owns {num_nodes_owned_by_proc} nodes\n{coords}")
 
     def test_submesh_transfer(self, params):
-        P2 = ufl.VectorElement("Lagrange", self.msh.ufl_cell(), 2)
+        # P2 = ufl.VectorElement("Lagrange", self.msh.ufl_cell(), 2)
         # P2 = ufl.FiniteElement("Lagrange", self.fluid.msh.ufl_cell(), 1)
+        P2 = element(
+            "Lagrange",
+            self.fluid.msh.basix_cell(),
+            degree=2,
+            shape=(self.fluid.msh.geometry.dim,),
+        )
 
-        V_fluid = dolfinx.fem.FunctionSpace(self.fluid.msh, P2)
-        V_struc = dolfinx.fem.FunctionSpace(self.structure.msh, P2)
-        V_all = dolfinx.fem.FunctionSpace(self.msh, P2)
+        V_fluid = dolfinx.fem.functionspace(self.fluid.msh, P2)
+        V_struc = dolfinx.fem.functionspace(self.structure.msh, P2)
+        V_all = dolfinx.fem.functionspace(self.msh, P2)
 
         u_all = dolfinx.fem.Function(V_all)
         u_fluid = dolfinx.fem.Function(V_fluid)
@@ -857,8 +908,10 @@ class FSIDomain:
         vec = find_shortest_distances(fluid_pts, global_structure_pts)
 
         # Build a function space for the distance (a scalar of degree 1)
-        scalar_el_1 = ufl.FiniteElement("Lagrange", self.fluid.msh.ufl_cell(), 1)
-        self.Q1 = dolfinx.fem.FunctionSpace(self.fluid.msh, scalar_el_1)
+        # scalar_el_1 = ufl.FiniteElement("Lagrange", self.fluid.msh.ufl_cell(), 1)
+        scalar_el_1 = element("Lagrange", self.fluid.msh.basix_cell(), degree=1)
+
+        self.Q1 = dolfinx.fem.functionspace(self.fluid.msh, scalar_el_1)
 
         self.distance = dolfinx.fem.Function(self.Q1)
         nn = np.shape(self.distance.vector.array)[0]
@@ -1120,7 +1173,12 @@ class FSIDomain:
         use_built_in_interpolate = True
 
         if use_built_in_interpolate:
-            self.fluid_mesh_displacement_bc_undeformed.interpolate(elasticity.u_delta)
+            print(self.fluid_mesh_displacement_bc_undeformed)
+            print(elasticity.u_delta)
+            self.fluid_mesh_displacement_bc_undeformed.interpolate(
+                self.total_mesh_displacement
+            )
+            print("yoyoyoyyoyo")
             self.fluid_mesh_displacement_bc_undeformed.x.scatter_forward()
             self.fluid_mesh_displacement_bc.x.array[:] = (
                 self.fluid_mesh_displacement_bc_undeformed.x.array[:]

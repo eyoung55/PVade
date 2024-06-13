@@ -4,6 +4,8 @@
 import dolfinx
 import ufl
 
+from basix.ufl import element
+
 from petsc4py import PETSc
 from mpi4py import MPI
 
@@ -44,10 +46,16 @@ class Elasticity:
         # domain.structure.msh = dolfinx.mesh.refine(domain.structure.msh,None)
         # domain.structure.msh = dolfinx.mesh.refine(domain.structure.msh)
 
-        P1 = ufl.VectorElement("Lagrange", domain.structure.msh.ufl_cell(), 2)
-        self.V = dolfinx.fem.FunctionSpace(domain.structure.msh, P1)
+        # P1 = ufl.VectorElement("Lagrange", domain.structure.msh.ufl_cell(), 2)
+        P1 = element(
+            "Lagrange",
+            domain.structure.msh.basix_cell(),
+            degree=2,
+            shape=(domain.fluid.msh.geometry.dim,),
+        )
+        self.V = dolfinx.fem.functionspace(domain.structure.msh, P1)
 
-        self.W = dolfinx.fem.FunctionSpace(
+        self.W = dolfinx.fem.functionspace(
             domain.structure.msh, ("Discontinuous Lagrange", 0)
         )
 
@@ -63,7 +71,10 @@ class Elasticity:
 
         # find hmin in mesh
         num_cells = domain.structure.msh.topology.index_map(self.ndim).size_local
-        h = dolfinx.cpp.mesh.h(domain.structure.msh, self.ndim, range(num_cells))
+        # h = dolfinx.cpp.mesh.h(domain.structure.msh, self.ndim, range(num_cells))
+        h = domain.structure.msh.h(
+            domain.structure.msh.topology.dim, np.arange(num_cells)
+        )
 
         # This value of hmin is local to the mesh portion owned by the process
         hmin_local = np.amin(h)
@@ -217,8 +228,15 @@ class Elasticity:
         # self.du = ufl.TrialFunction(self.V)
         self.u_ = ufl.TestFunction(self.V)
 
-        P3 = ufl.TensorElement("Lagrange", domain.structure.msh.ufl_cell(), 2)
-        self.T = dolfinx.fem.FunctionSpace(domain.structure.msh, P3)
+        # P3 = ufl.TensorElement("Lagrange", domain.structure.msh.ufl_cell(), 2)
+        P3 = element(
+            "Lagrange",
+            domain.structure.msh.basix_cell(),
+            degree=2,
+            shape=(domain.fluid.msh.geometry.dim, domain.fluid.msh.geometry.dim),
+        )
+
+        self.T = dolfinx.fem.functionspace(domain.structure.msh, P3)
 
         self.stress = dolfinx.fem.Function(self.T, name="stress_fluid")
         self.stress_old = dolfinx.fem.Function(self.T, name="stress_fluid_old")

@@ -4,6 +4,8 @@
 import dolfinx
 import ufl
 
+from basix.ufl import element
+
 from petsc4py import PETSc
 from mpi4py import MPI
 
@@ -46,23 +48,37 @@ class Flow:
             self.num_procs = domain.num_procs
 
             # Pressure (Scalar)
-            P1 = ufl.FiniteElement("Lagrange", domain.fluid.msh.ufl_cell(), 1)
-            self.Q = dolfinx.fem.FunctionSpace(domain.fluid.msh, P1)
+            # P1 = ufl.FiniteElement("Lagrange", domain.fluid.msh.ufl_cell(), 1)
+            P1 = element("Lagrange", domain.fluid.msh.basix_cell(), degree=1)
+            self.Q = dolfinx.fem.functionspace(domain.fluid.msh, P1)
 
             # Velocity (Vector)
-            P2 = ufl.VectorElement("Lagrange", domain.fluid.msh.ufl_cell(), 2)
-            self.V = dolfinx.fem.FunctionSpace(domain.fluid.msh, P2)
+            # P2 = ufl.VectorElement("Lagrange", domain.fluid.msh.ufl_cell(), 2)
+            P2 = element(
+                "Lagrange",
+                domain.fluid.msh.basix_cell(),
+                degree=2,
+                shape=(domain.fluid.msh.geometry.dim,),
+            )
+            self.V = dolfinx.fem.functionspace(domain.fluid.msh, P2)
 
             # Stress (Tensor)
-            P3 = ufl.TensorElement("Lagrange", domain.fluid.msh.ufl_cell(), 2)
-            self.T = dolfinx.fem.FunctionSpace(domain.fluid.msh, P3)
-            self.T_undeformed = dolfinx.fem.FunctionSpace(
+            # P3 = ufl.TensorElement("Lagrange", domain.fluid.msh.ufl_cell(), 2)
+            P3 = element(
+                "Lagrange",
+                domain.fluid.msh.basix_cell(),
+                degree=2,
+                shape=(domain.fluid.msh.geometry.dim, domain.fluid.msh.geometry.dim),
+            )
+            self.T = dolfinx.fem.functionspace(domain.fluid.msh, P3)
+            self.T_undeformed = dolfinx.fem.functionspace(
                 domain.fluid_undeformed.msh, P3
             )
 
-            P4 = ufl.FiniteElement("DG", domain.fluid.msh.ufl_cell(), 0)
+            # P4 = ufl.FiniteElement("DG", domain.fluid.msh.ufl_cell(), 0)
+            P4 = element("DG", domain.fluid.msh.basix_cell(), degree=0)
 
-            self.DG = dolfinx.fem.FunctionSpace(domain.fluid.msh, P4)
+            self.DG = dolfinx.fem.functionspace(domain.fluid.msh, P4)
 
             self.first_call_to_solver = True
             self.first_call_to_surface_pressure = True
@@ -73,7 +89,8 @@ class Flow:
 
             # find hmin in mesh
             num_cells = domain.fluid.msh.topology.index_map(self.ndim).size_local
-            h = dolfinx.cpp.mesh.h(domain.fluid.msh, self.ndim, range(num_cells))
+            # h = dolfinx.cpp.mesh.h(domain.fluid.msh, self.ndim, range(num_cells))
+            h = domain.fluid.msh.h(domain.fluid.msh.topology.dim, np.arange(num_cells))
 
             # This value of hmin is local to the mesh portion owned by the process
             hmin_local = np.amin(h)
