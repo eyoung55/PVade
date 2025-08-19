@@ -1184,17 +1184,51 @@ class DomainCreation(TemplateDomainCreation):
             tracker_angle_rad = np.radians(params.pv_array.tracker_angle)
 
         half_panel = params.pv_array.panel_chord * np.cos(tracker_angle_rad)
-        self.gmsh_model.mesh.field.setNumber(threshold, "LcMin", resolution * 0.5)
-        self.gmsh_model.mesh.field.setNumber(threshold, "LcMax", 3 * resolution)
+        # self.gmsh_model.mesh.field.setNumber(threshold, "LcMin", resolution * 0.5)
+        self.gmsh_model.mesh.field.setNumber(threshold, "LcMin", params.domain.l_char)
+        # self.gmsh_model.mesh.field.setNumber(threshold, "LcMax", 3 * resolution)
+        self.gmsh_model.mesh.field.setNumber(threshold, "LcMax", 8.0 * params.domain.l_char)
         self.gmsh_model.mesh.field.setNumber(
-            threshold, "DistMin", 0.3 * params.pv_array.stream_spacing
+            threshold, "DistMin", params.pv_array.panel_chord
         )
         self.gmsh_model.mesh.field.setNumber(
-            threshold, "DistMax", params.pv_array.stream_spacing + half_panel
+            threshold, "DistMax", 8.0 * params.pv_array.panel_chord
         )
         min_dist.append(threshold)
 
-        if params.general.fluid_analysis == True:
+        extent_x = (params.pv_array.stream_rows - 1) * params.pv_array.stream_spacing # excludes half a chord both upstream and downstream, but that's ok
+        extent_y = params.pv_array.panel_span + (params.pv_array.span_rows - 1) * params.pv_array.span_spacing
+
+        max_diag = np.sqrt(extent_x ** 2 + extent_y ** 2)
+        center_x = 0.5 * extent_x
+
+        print(f"max_diag = {max_diag}")
+        print(f"center_x = {center_x}")
+
+        less_than_centroid = f"x - {center_x}"
+        very_close_ground = f"z - {params.pv_array.elevation * 0.1}"
+        within_diag_span = f"abs(y) - {0.5 * max_diag}"
+
+        boolean_expression = f"max({less_than_centroid}, max({very_close_ground}, {within_diag_span}))"
+
+        near_ground = self.gmsh_model.mesh.field.add("MathEval")
+        near_ground_thresh = self.gmsh_model.mesh.field.add("Threshold")
+
+        self.gmsh_model.mesh.field.setString(near_ground, "F", boolean_expression)
+
+        self.gmsh_model.mesh.field.setNumber(near_ground_thresh, "InField", near_ground)
+
+        self.gmsh_model.mesh.field.setNumber(near_ground_thresh, "LcMin", params.domain.l_char)
+        self.gmsh_model.mesh.field.setNumber(near_ground_thresh, "LcMax", 10.0 * params.domain.l_char)
+
+        self.gmsh_model.mesh.field.setNumber(near_ground_thresh, "DistMin", 0.0)
+        self.gmsh_model.mesh.field.setNumber(near_ground_thresh, "DistMax", 0.5 * params.pv_array.elevation)
+
+        min_dist.append(threshold)
+        min_dist.append(near_ground_thresh)
+
+        
+        if params.general.fluid_analysis == True and 1 < 0:
             # Define a distance field from the immersed panels
             zmin_dist = self.gmsh_model.mesh.field.add("Distance")
             self.gmsh_model.mesh.field.setNumbers(
