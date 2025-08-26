@@ -21,11 +21,11 @@ pv_array:
   panel_span: 10.0
   panel_thickness: 0.1
   elevation: 2.1
-  tracker_angle: 0.0
+  tracker_angle: 40.0
   span_fixation_pts: [13.2]
 solver:
   dt: 0.02
-  t_final: 1.0 #20.0
+  t_final: 60.0
   solver1_ksp: gmres
   solver2_ksp: gmres
   solver3_ksp: gmres
@@ -38,7 +38,7 @@ solver:
   save_xdmf_interval: 0.02
 fluid:
   velocity_profile_type: specified_from_file
-  h5_filename: input/pct_turb_ny80_nz80_unconstrained_1.0s_dt0.01_uref20.h5
+  h5_filename: input/pct_constrained_turb_ny100_nz38_sonic1_5s_u8.118_50Hz.h5 # input/pct_constrained_turb_ny100_nz38_sonic1_60s_u9.857.h5
   initialize_with_inflow_bc: true
   rho: 1.0
   nu: 1.8e-05
