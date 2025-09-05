@@ -61,7 +61,7 @@ class Structure:
         else:
             hmin_local = np.inf
 
-        print(hmin_local)
+        # print(hmin_local)
         self.hmin = np.zeros(1)
         self.hmin = self.comm.allreduce(hmin_local, op=MPI.MIN)
 

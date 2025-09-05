@@ -148,9 +148,9 @@ def main(input_file=None):
                     local_def_max = np.amax(np.sum(u_reshaped**2, axis=1))
                 else:
                     local_def_max = -np.inf  # So it doesn't interfere in max
-                print(
-                    f"Rank {domain.comm.rank}: u_vec.size = {u_local.size}, local_def_max = {local_def_max}"
-                )
+                # print(
+                #     f"Rank {domain.comm.rank}: u_vec.size = {u_local.size}, local_def_max = {local_def_max}"
+                # )
 
                 # Wrap scalar in NumPy array (required for Gather)
                 sendbuf = np.array([local_def_max], dtype=np.float64)
