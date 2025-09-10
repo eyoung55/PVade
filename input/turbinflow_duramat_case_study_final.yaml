@@ -1,0 +1,63 @@
+general:
+  geometry_module: panels3d
+  output_dir: output/turbinflow_duramat_case_study
+  mesh_only: false
+  structural_analysis: true
+  fluid_analysis: true
+  thermal_analysis: false
+domain:
+  x_min: -12.36
+  x_max: 40.0
+  y_min: -13.1
+  y_max: 13.1
+  z_min: 0.0
+  z_max: 20.0
+  l_char: 0.17
+pv_array:
+  stream_rows: 1
+  stream_spacing: 10.0
+  span_rows: 1
+  span_spacing: 30.0
+  panel_chord: 4.1
+  panel_span: 13.07
+  panel_thickness: 0.1
+  elevation: 2.1
+  tracker_angle: 40.0
+  span_fixation_pts: [0.0]
+solver:
+  dt: 0.006
+  t_final: 30.0
+  solver1_ksp: gmres
+  solver2_ksp: gmres
+  solver3_ksp: gmres
+  solver5_ksp: gmres
+  solver1_pc: hypre
+  solver2_pc: hypre
+  solver3_pc: hypre
+  solver5_pc: hypre
+  save_text_interval: 0.012
+  save_xdmf_interval: 0.012
+fluid:
+  velocity_profile_type: specified_from_file
+  h5_filename: input/pct_constrained_turb_ny100_nz38_sonic1_5s_u8.118_50Hz.h5 # input/pct_constrained_turb_ny100_nz38_sonic1_60s_u9.857.h5
+  initialize_with_inflow_bc: true
+  rho: 1.0
+  nu: 1.8e-05
+  turbulence_model: smagorinsky
+  bc_y_max: slip
+  bc_y_min: slip
+  bc_z_max: slip
+  bc_z_min: noslip
+  wind_direction: 270.0
+structure:
+  dt : 0.006
+  rho: 124.0
+  poissons_ratio: 0.3
+  elasticity_modulus: 0.4e+09
+  body_force_x: 0.0
+  body_force_y: 0.0
+  body_force_z: 0.0
+  bc_list: []
+  motor_connection: true
+  tube_connection: true
+  beta_relaxation: 0.5
