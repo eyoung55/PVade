@@ -8,23 +8,24 @@ parentdir = '/scratch/bstanisl/pvade/turb_inflow/'
 casepath = 'y20m_turbinflow_duramat_validation/'
 
 output_dir=parentdir+'output/'+casepath
-pkl_fname = f'duramatval_tracker_angle_{tilt}.pkl'
 
 # read input parameters
 with open(output_dir+'input_params.yaml', 'r') as file:
     params = yaml.safe_load(file)
 
-print('tracker_angle = {} m/s'.format(params['pv_array']['tracker_angle']))
+print('tracker_angle = {} m/s'.format(params['pv_array']['tracker_angle']), flush=True)
 dt = params['solver']['dt']
+
+save_pkl_name = f'duramatval_tracker_angle_{params['pv_array']['tracker_angle']}.pkl'
 
 fname = output_dir + 'solution/solution_fluid.h5'
 
 with h5py.File(fname, "r") as f:
-    print("Reading from " + fname)
+    print("Reading from " + fname, flush=True)
     
     # Mesh coordinates  ===============
     coords = f["Mesh/fluid_mesh.xdmf/geometry"][:]
-    print("Coords shape:", coords.shape)  # Should be (538, 3) or (538, 2)
+    print("Coords shape:", coords.shape, flush=True)  # Should be (538, 3) or (538, 2)
     
     # Velocity ===============
     velocity_group = f["Function/velocity "]
@@ -36,7 +37,7 @@ with h5py.File(fname, "r") as f:
     data_list = [velocity_group[k][:] for k in keys]
     rawdata = np.stack(data_list)  # Shape: (n_timesteps, n_points, 3)
 
-print("Combined velocity shape:", rawdata.shape)  # e.g. (100, 5000, 3)
+print("Combined velocity shape:", rawdata.shape, flush=True)  # e.g. (100, 5000, 3)
 
 # compute approximate nx, ny, nz
 # assuming same domain shape           
@@ -52,8 +53,8 @@ nx = round(s * Lx)
 ny = round(s * Ly)
 nz = round(s * Lz)
 
-print(f"Estimated grid points: nx={nx}, ny={ny}, nz={nz}")
-print(f"Check: nx * ny * nz = {nx * ny * nz}")
+print(f"Estimated grid points: nx={nx}, ny={ny}, nz={nz}", flush=True)
+print(f"Check: nx * ny * nz = {nx * ny * nz}", flush=True)
 
 # Interpolate to regular grid
 nt, npoints, ncomp = rawdata.shape
@@ -76,9 +77,9 @@ alldata['w'] = np.full((nt, nx, ny, nz), np.nan, dtype=float) #np.empty((nt, nx,
 # alldata['T'] = np.empty((nt, nx, ny))
 
 # Interpolate
-for t in np.arange(0, 10): # nt): #range(nt):
-    # if t % 100 == 0:
-    print('nt = {}'.format(t))
+for t in np.arange(100, nt): #range(nt):
+    if t % 100 == 0:
+        print('nt = {}'.format(t), flush=True)
     alldata['u'][t, :, :, :] = griddata(coords, rawdata[t, :, 0], (X, Y, Z), method='nearest')
     alldata['v'][t, :, :, :] = griddata(coords, rawdata[t, :, 1], (X, Y, Z), method='nearest')
     alldata['w'][t, :, :, :] = griddata(coords, rawdata[t, :, 2], (X, Y, Z), method='nearest')
